@@ -216,5 +216,14 @@ for (const dir of dirs) {
 	npmInstall(dir, { env });
 }
 
-child_process.execSync('git config pull.rebase merges');
-child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
+const gitDir = path.join(root, '.git');
+if (fs.existsSync(gitDir)) {
+	try {
+		child_process.execSync('git config pull.rebase merges');
+		child_process.execSync('git config blame.ignoreRevsFile .git-blame-ignore-revs');
+	} catch (error) {
+		console.warn('[postinstall] Skipping git config setup:', error);
+	}
+} else {
+	console.log('[postinstall] Skipping git config setup (no .git directory found).');
+}
