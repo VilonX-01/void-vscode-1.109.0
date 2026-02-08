@@ -16,18 +16,49 @@ import { isLinux } from '../../../../../../../base/common/platform.js';
 const OVERRIDE_VALUE = false
 
 export const VoidOnboarding = () => {
+	const accessor = useAccessor()
+	const voidSettingsService = accessor.get('IVoidSettingsService')
+	const [isReady, setIsReady] = useState(false)
 
 	const voidSettingsState = useSettingsState()
 	const isOnboardingComplete = voidSettingsState.globalSettings.isOnboardingComplete || OVERRIDE_VALUE
 
 	const isDark = useIsDark()
 
+	useEffect(() => {
+		let isDisposed = false
+		voidSettingsService.waitForInitState.finally(() => {
+			if (!isDisposed) {
+				setIsReady(true)
+			}
+		})
+		return () => {
+			isDisposed = true
+		}
+	}, [voidSettingsService])
+
+	// While settings are being decrypted/loaded, keep a solid backdrop so the
+	// regular workbench does not flash before onboarding decision is known.
+	if (!isReady) {
+		return (
+			<div className={`@@void-scope ${isDark ? 'dark' : ''}`}>
+				<div className="bg-void-bg-3 fixed inset-0 z-[99999]" />
+			</div>
+		)
+	}
+
+	// If onboarding is already complete, render nothing at all (no fade shell),
+	// so it never "slides through" on subsequent launches.
+	if (isOnboardingComplete) {
+		return null
+	}
+
 	return (
 		<div className={`@@void-scope ${isDark ? 'dark' : ''}`}>
 			<div
 				className={`
 					bg-void-bg-3 fixed top-0 right-0 bottom-0 left-0 width-full z-[99999]
-					transition-all duration-1000 ${isOnboardingComplete ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}
+					opacity-100 pointer-events-auto
 				`}
 				style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
 			>

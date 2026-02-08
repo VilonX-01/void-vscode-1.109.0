@@ -39,6 +39,14 @@ export class OnboardingContribution extends Disposable implements IWorkbenchCont
 		if (workbench) {
 
 			const onboardingContainer = h('div.void-onboarding-container').root;
+			// Temporary startup blocker to avoid a one-frame workbench flash before
+			// React mounts and decides whether onboarding should be shown.
+			onboardingContainer.style.position = 'fixed';
+			onboardingContainer.style.inset = '0';
+			onboardingContainer.style.zIndex = '99999';
+			onboardingContainer.style.background = 'var(--vscode-editor-background)';
+			onboardingContainer.style.pointerEvents = 'auto';
+
 			workbench.appendChild(onboardingContainer);
 			this.instantiationService.invokeFunction((accessor: ServicesAccessor) => {
 				const result = mountVoidOnboarding(onboardingContainer, accessor);
@@ -46,6 +54,29 @@ export class OnboardingContribution extends Disposable implements IWorkbenchCont
 					this._register(toDisposable(result.dispose));
 				}
 			});
+
+			// Remove temporary blocker styles after first paint; React onboarding (if
+			// active) provides its own overlay styles.
+			let raf1 = 0;
+			let raf2 = 0;
+			raf1 = targetWindow.requestAnimationFrame(() => {
+				raf2 = targetWindow.requestAnimationFrame(() => {
+					onboardingContainer.style.position = '';
+					onboardingContainer.style.inset = '';
+					onboardingContainer.style.zIndex = '';
+					onboardingContainer.style.background = '';
+					onboardingContainer.style.pointerEvents = '';
+				});
+			});
+			this._register(toDisposable(() => {
+				if (raf1) {
+					targetWindow.cancelAnimationFrame(raf1);
+				}
+				if (raf2) {
+					targetWindow.cancelAnimationFrame(raf2);
+				}
+			}));
+
 			// Register cleanup for the DOM element
 			this._register(toDisposable(() => {
 				if (onboardingContainer.parentElement) {
