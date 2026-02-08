@@ -9,6 +9,7 @@ import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase 
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { mountVoidOnboarding } from './react/out/void-onboarding/index.js'
 import { h, getActiveWindow } from '../../../../base/browser/dom.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 
 // Onboarding contribution that mounts the component at startup
 export class OnboardingContribution extends Disposable implements IWorkbenchContribution {
@@ -16,6 +17,7 @@ export class OnboardingContribution extends Disposable implements IWorkbenchCont
 
 	constructor(
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 	) {
 		super();
 		this.initialize();
@@ -25,8 +27,14 @@ export class OnboardingContribution extends Disposable implements IWorkbenchCont
 		// Get the active window reference for multi-window support
 		const targetWindow = getActiveWindow();
 
-		// Find the monaco-workbench element using the proper window reference
-		const workbench = targetWindow.document.querySelector('.monaco-workbench');
+		// Resolve the active workbench container via layout service first.
+		// Fallback to DOM query if container is not available yet.
+		let workbench: Element | null = null;
+		try {
+			workbench = this.layoutService.getContainer(targetWindow);
+		} catch {
+			workbench = targetWindow.document.querySelector('.monaco-workbench');
+		}
 
 		if (workbench) {
 
@@ -48,5 +56,5 @@ export class OnboardingContribution extends Disposable implements IWorkbenchCont
 	}
 }
 
-// Register the contribution to be initialized during the AfterRestored phase
-registerWorkbenchContribution2(OnboardingContribution.ID, OnboardingContribution, WorkbenchPhase.AfterRestored);
+// Mount before workbench restore completes to avoid showing the regular editor first.
+registerWorkbenchContribution2(OnboardingContribution.ID, OnboardingContribution, WorkbenchPhase.BlockRestore);

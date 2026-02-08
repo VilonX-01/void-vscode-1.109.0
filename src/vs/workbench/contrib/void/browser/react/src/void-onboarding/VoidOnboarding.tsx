@@ -64,26 +64,53 @@ const VoidIcon = () => {
 	return <div ref={divRef} className='@@void-void-icon' />
 }
 
-const FADE_DURATION_MS = 2000
+const FADE_DURATION_MS = 780
+const FADE_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)'
 
 const FadeIn = ({ children, className, delayMs = 0, durationMs, ...props }: { children: React.ReactNode, delayMs?: number, durationMs?: number, className?: string } & React.HTMLAttributes<HTMLDivElement>) => {
 
-	const [opacity, setOpacity] = useState(0)
+	const [isVisible, setIsVisible] = useState(false)
+	const [didStart, setDidStart] = useState(false)
+	const { style: providedStyle, ...restProps } = props
 
 	const effectiveDurationMs = durationMs ?? FADE_DURATION_MS
 
 	useEffect(() => {
+		let rafId: number | undefined
 
 		const timeout = setTimeout(() => {
-			setOpacity(1)
+			setDidStart(true)
+			rafId = requestAnimationFrame(() => {
+				setIsVisible(true)
+			})
 		}, delayMs)
 
-		return () => clearTimeout(timeout)
-	}, [setOpacity, delayMs])
+		return () => {
+			clearTimeout(timeout)
+			if (rafId !== undefined) {
+				cancelAnimationFrame(rafId)
+			}
+		}
+	}, [delayMs])
 
 
 	return (
-		<div className={className} style={{ opacity, transition: `opacity ${effectiveDurationMs}ms ease-in-out` }} {...props}>
+		<div
+			className={className}
+			style={{
+				opacity: isVisible ? 1 : 0,
+				transform: isVisible ? 'translate3d(0, 0, 0) scale(1)' : 'translate3d(0, 20px, 0) scale(0.985)',
+				filter: isVisible ? 'blur(0px)' : 'blur(8px)',
+				willChange: didStart ? 'opacity, transform, filter' : undefined,
+				transition: [
+					`opacity ${effectiveDurationMs}ms ${FADE_EASING}`,
+					`transform ${effectiveDurationMs + 120}ms ${FADE_EASING}`,
+					`filter ${effectiveDurationMs}ms ${FADE_EASING}`,
+				].join(', '),
+				...providedStyle,
+			}}
+			{...restProps}
+		>
 			{children}
 		</div>
 	)
